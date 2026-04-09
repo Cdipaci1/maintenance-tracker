@@ -1,0 +1,17 @@
+{
+  "name": "bigsur-maintenance-tracker",
+  "version": "1.0.0",
+  "description": "Maintenance tracking app for White Rock and N2 Ranch",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "express": "^4.18.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

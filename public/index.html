@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>BigSur Maintenance</title>
+<style>
+:root {
+  --primary: #1d4ed8;
+  --primary-light: #3b82f6;
+  --primary-dark: #1e3a8a;
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --purple: #7c3aed;
+  --bg: #f1f5f9;
+  --surface: #ffffff;
+  --border: #e2e8f0;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --text-light: #94a3b8;
+  --nav-h: 64px;
+  --header-h: 56px;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,.1),0 1px 2px rgba(0,0,0,.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -2px rgba(0,0,0,.05);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:15px;line-height:1.5}
+
+/* ── Layout ──────────────────────────────────────────────────── */
+#app{display:flex;flex-direction:column;height:100%;max-width:1200px;margin:0 auto;position:relative}
+#header{position:sticky;top:0;z-index:100;background:var(--primary-dark);color:#fff;height:var(--header-h);display:flex;align-items:center;padding:0 16px;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+#header h1{font-size:17px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#header-actions{display:flex;gap:8px;align-items:center}
+#main{flex:1;overflow-y:auto;padding:16px;padding-bottom:calc(var(--nav-h) + 16px)}
+#bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:1200px;height:var(--nav-h);background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:100;padding-bottom:env(safe-area-inset-bottom)}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;border:none;background:none;color:var(--text-muted);font-size:11px;font-weight:500;transition:color .15s;padding:6px 0}
+.nav-btn.active{color:var(--primary)}
+.nav-btn svg{width:22px;height:22px}
+.view{display:none}
+.view.active{display:block}
+
+/* ── Cards ──────────────────────────────────────────────────── */
+.card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:12px}
+.card-header{padding:14px 16px 0;display:flex;align-items:center;justify-content:space-between}
+.card-body{padding:14px 16px}
+.card-title{font-weight:600;font-size:15px}
+
+/* ── Stat cards ─────────────────────────────────────────────── */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.stat-card{background:var(--surface);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow)}
+.stat-site{font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.stat-row{display:flex;justify-content:space-between;gap:8px}
+.stat-item{text-align:center;flex:1}
+.stat-num{font-size:22px;font-weight:700;line-height:1}
+.stat-label{font-size:11px;color:var(--text-muted);margin-top:2px}
+.stat-num.open{color:var(--text-muted)}
+.stat-num.in-progress{color:var(--primary)}
+.stat-num.complete{color:var(--success)}
+.stat-num.overdue{color:var(--danger)}
+.stat-overdue{margin-top:8px;padding:6px 10px;background:#fef2f2;border-radius:var(--radius-sm);font-size:12px;color:var(--danger);font-weight:600;text-align:center}
+
+/* ── Section headers ────────────────────────────────────────── */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;margin-top:4px}
+.section-title{font-size:13px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em}
+
+/* ── Work order cards ───────────────────────────────────────── */
+.wo-card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:10px;display:flex;overflow:hidden;cursor:pointer;transition:box-shadow .15s}
+.wo-card:active{box-shadow:var(--shadow-lg);transform:scale(.99)}
+.wo-priority-bar{width:4px;flex-shrink:0}
+.wo-body{flex:1;padding:12px 14px;min-width:0}
+.wo-title{font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wo-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center}
+.wo-site{font-size:12px;color:var(--text-muted);font-weight:500}
+.wo-bottom{display:flex;align-items:center;justify-content:space-between;margin-top:8px;flex-wrap:wrap;gap:6px}
+.wo-assignee{font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:4px}
+.wo-due{font-size:12px;font-weight:500}
+.wo-due.overdue{color:var(--danger)}
+.wo-due.soon{color:var(--warning)}
+
+/* Priority colors */
+.priority-urgent{background:#dc2626}
+.priority-high{background:#ea580c}
+.priority-medium{background:#2563eb}
+.priority-low{background:#94a3b8}
+
+/* ── Badges ─────────────────────────────────────────────────── */
+.badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap}
+.badge-landscape{background:#dcfce7;color:#15803d}
+.badge-equipment{background:#fef9c3;color:#a16207}
+.badge-building{background:#ede9fe;color:#6d28d9}
+.badge-vehicle{background:#dbeafe;color:#1d4ed8}
+.badge-open{background:#f1f5f9;color:#475569}
+.badge-in_progress{background:#dbeafe;color:#1d4ed8}
+.badge-complete{background:#dcfce7;color:#15803d}
+.badge-low{background:#f1f5f9;color:#64748b}
+.badge-medium{background:#dbeafe;color:#1d4ed8}
+.badge-high{background:#ffedd5;color:#c2410c}
+.badge-urgent{background:#fee2e2;color:#b91c1c}
+
+/* ── Filters ────────────────────────────────────────────────── */
+.filter-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.filter-bar select,.search-input{border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;font-size:14px;background:var(--surface);color:var(--text);outline:none;appearance:none}
+.filter-bar select:focus,.search-input:focus{border-color:var(--primary-light);box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+.search-wrap{position:relative;flex:1;min-width:160px}
+.search-input{width:100%;padding-left:36px}
+.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);pointer-events:none}
+.filter-selects{display:flex;gap:8px;flex-wrap:wrap}
+.filter-selects select{flex:1;min-width:100px}
+
+/* ── FAB ────────────────────────────────────────────────────── */
+.fab{position:fixed;bottom:calc(var(--nav-h) + 16px);right:16px;width:52px;height:52px;border-radius:50%;background:var(--primary);color:#fff;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(37,99,235,.4);display:flex;align-items:center;justify-content:center;z-index:90;transition:transform .15s,box-shadow .15s}
+.fab:active{transform:scale(.92);box-shadow:0 2px 8px rgba(37,99,235,.3)}
+.fab svg{width:24px;height:24px}
+
+/* ── Modal ──────────────────────────────────────────────────── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:600px;max-height:92vh;overflow-y:auto;transform:translateY(100%);transition:transform .25s cubic-bezier(.4,0,.2,1);padding-bottom:env(safe-area-inset-bottom)}
+.modal-overlay.open .modal{transform:translateY(0)}
+.modal-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:12px auto 0}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px 0}
+.modal-title{font-size:17px;font-weight:700}
+.modal-close{background:none;border:none;cursor:pointer;padding:4px;color:var(--text-muted);border-radius:6px}
+.modal-body{padding:16px 20px 24px}
+.form-group{margin-bottom:14px}
+.form-label{display:block;font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px}
+.form-label span{color:var(--danger)}
+.form-input,.form-select,.form-textarea{width:100%;border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:15px;color:var(--text);background:var(--surface);outline:none;font-family:inherit}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--primary-light);box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+.form-textarea{resize:vertical;min-height:80px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-hint{font-size:12px;color:var(--text-muted);margin-top:4px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 18px;border-radius:var(--radius-sm);font-size:15px;font-weight:600;cursor:pointer;border:none;transition:background .15s,transform .1s}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-dark)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-ghost{background:transparent;color:var(--text-muted);border:1px solid var(--border)}
+.btn-full{width:100%}
+.btn-sm{padding:6px 12px;font-size:13px}
+.modal-footer{display:flex;gap:10px;padding-top:16px;border-top:1px solid var(--border)}
+
+/* ── Equipment cards ────────────────────────────────────────── */
+.eq-card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:10px;padding:14px 16px}
+.eq-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
+.eq-name{font-weight:600;font-size:15px}
+.eq-site{font-size:12px;color:var(--text-muted)}
+.eq-meter{margin-bottom:10px}
+.eq-value{font-size:28px;font-weight:700;line-height:1}
+.eq-unit{font-size:14px;color:var(--text-muted);font-weight:500}
+.meter-bar-wrap{height:10px;background:#e2e8f0;border-radius:5px;overflow:hidden;margin-top:8px}
+.meter-bar{height:100%;border-radius:5px;transition:width .3s}
+.meter-bar.high{background:var(--success)}
+.meter-bar.medium{background:var(--warning)}
+.meter-bar.low{background:var(--danger)}
+.eq-alert{margin-top:8px;padding:6px 10px;background:#fef2f2;border-radius:var(--radius-sm);font-size:12px;color:var(--danger);font-weight:600}
+.eq-footer{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
+.eq-last-reading{font-size:12px;color:var(--text-muted)}
+.eq-actions{display:flex;gap:8px}
+
+/* ── Schedule cards ─────────────────────────────────────────── */
+.tmpl-card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:10px;padding:14px 16px}
+.tmpl-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px}
+.tmpl-title{font-weight:600;font-size:15px}
+.tmpl-meta{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;align-items:center}
+.tmpl-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.tmpl-next{font-size:13px;color:var(--text-muted)}
+.tmpl-freq{font-size:12px;font-weight:600;color:var(--primary);background:#dbeafe;padding:3px 8px;border-radius:999px}
+.toggle-switch{position:relative;width:42px;height:24px;flex-shrink:0}
+.toggle-switch input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;cursor:pointer;inset:0;background:#cbd5e1;border-radius:999px;transition:.2s}
+.toggle-slider:before{content:'';position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
+input:checked+.toggle-slider{background:var(--primary)}
+input:checked+.toggle-slider:before{transform:translateX(18px)}
+
+/* ── History list ───────────────────────────────────────────── */
+.history-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.history-item:last-child{border-bottom:none}
+.history-val{font-weight:700;font-size:15px;min-width:60px}
+.history-detail{flex:1}
+.history-note{font-size:13px;color:var(--text-muted)}
+.history-meta{font-size:12px;color:var(--text-light);margin-top:2px}
+
+/* ── Empty state ────────────────────────────────────────────── */
+.empty{text-align:center;padding:40px 20px;color:var(--text-muted)}
+.empty svg{width:48px;height:48px;margin:0 auto 12px;opacity:.3;display:block}
+.empty p{font-size:15px;margin-bottom:4px}
+.empty small{font-size:13px}
+
+/* ── Icon button ────────────────────────────────────────────── */
+.icon-btn{background:none;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 8px;cursor:pointer;color:var(--text-muted);display:inline-flex;align-items:center;justify-content:center;transition:background .15s}
+.icon-btn:hover{background:var(--bg)}
+.icon-btn svg{width:16px;height:16px}
+.icon-btn.danger:hover{background:#fee2e2;border-color:#fca5a5;color:var(--danger)}
+
+/* ── Alert banner ───────────────────────────────────────────── */
+.alert-banner{background:#fef2f2;border:1px solid #fecaca;border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px}
+.alert-banner svg{width:18px;height:18px;color:var(--danger);flex-shrink:0}
+.alert-banner-text{font-size:13px;color:#991b1b;font-weight:500}
+
+/* ── Recent activity ────────────────────────────────────────── */
+.activity-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer}
+.activity-item:last-child{border-bottom:none}
+.activity-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.activity-content{flex:1;min-width:0}
+.activity-title{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.activity-sub{font-size:12px;color:var(--text-muted)}
+.activity-time{font-size:12px;color:var(--text-light);flex-shrink:0}
+
+/* ── Team manager ───────────────────────────────────────────── */
+.team-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.team-item:last-child{border-bottom:none}
+.team-name{font-weight:500}
+
+/* ── Toast ──────────────────────────────────────────────────── */
+#toast{position:fixed;bottom:calc(var(--nav-h) + 80px);left:50%;transform:translateX(-50%) translateY(20px);background:#0f172a;color:#fff;padding:10px 18px;border-radius:999px;font-size:14px;font-weight:500;z-index:300;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── Responsive / Desktop ───────────────────────────────────── */
+@media(min-width:768px){
+  #bottom-nav{display:none}
+  #main{padding-bottom:16px}
+  #app{flex-direction:row}
+  #header{display:none}
+  #sidebar{width:220px;background:var(--primary-dark);flex-shrink:0;padding:24px 0;display:flex;flex-direction:column;gap:4px;min-height:100vh;position:sticky;top:0}
+  .sidebar-logo{padding:8px 20px 24px;color:#fff;font-size:18px;font-weight:800;letter-spacing:-.5px}
+  .sidebar-btn{display:flex;align-items:center;gap:10px;padding:11px 20px;cursor:pointer;border:none;background:none;color:rgba(255,255,255,.7);font-size:14px;font-weight:500;width:100%;text-align:left;transition:background .15s,color .15s;border-radius:0}
+  .sidebar-btn.active{background:rgba(255,255,255,.15);color:#fff}
+  .sidebar-btn svg{width:20px;height:20px;flex-shrink:0}
+  .modal-overlay{align-items:center}
+  .modal{border-radius:var(--radius);max-height:85vh}
+  .fab{right:32px;bottom:32px}
+  #main{flex:1;overflow-y:auto;min-height:100vh}
+  #desktop-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+  #desktop-header h2{font-size:24px;font-weight:700}
+}
+@media(max-width:767px){
+  #sidebar{display:none}
+  .stat-grid{grid-template-columns:1fr}
+  #desktop-header{display:none}
+}
+.desktop-only{display:none}
+@media(min-width:768px){.desktop-only{display:flex}}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- Mobile Header -->
+  <header id="header">
+    <h1 id="header-title">BigSur Maintenance</h1>
+    <div id="header-actions">
+      <button class="icon-btn" style="border-color:rgba(255,255,255,.3);color:#fff" onclick="openTeamModal()" title="Manage Team">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Desktop Sidebar -->
+  <nav id="sidebar">
+    <div class="sidebar-logo">⚙️ BigSur</div>
+    <button class="sidebar-btn active" onclick="setView('dashboard',this)" data-view="dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Dashboard
+    </button>
+    <button class="sidebar-btn" onclick="setView('work-orders',this)" data-view="work-orders">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      Work Orders
+    </button>
+    <button class="sidebar-btn" onclick="setView('equipment',this)" data-view="equipment">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M5.34 5.34L3.93 3.93M12 2v2M12 20v2M4.93 19.07l1.41-1.41M18.66 18.66l1.41 1.41M2 12h2M20 12h2"/></svg>
+      Equipment
+    </button>
+    <button class="sidebar-btn" onclick="setView('schedules',this)" data-view="schedules">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>
+      Schedules
+    </button>
+    <div style="flex:1"></div>
+    <button class="sidebar-btn" onclick="openTeamModal()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Team
+    </button>
+  </nav>
+
+  <!-- Main Content -->
+  <main id="main">
+    <!-- DASHBOARD ─────────────────────────────────────────── -->
+    <div class="view active" id="view-dashboard">
+      <div id="desktop-header"><h2>Dashboard</h2></div>
+      <div id="dash-alerts"></div>
+      <div class="section-header">
+        <span class="section-title">Site Overview</span>
+      </div>
+      <div class="stat-grid" id="dash-stats"></div>
+      <div class="section-header" style="margin-top:8px">
+        <span class="section-title">Due This Week</span>
+      </div>
+      <div id="dash-upcoming"></div>
+      <div class="section-header" style="margin-top:8px">
+        <span class="section-title">Recent Activity</span>
+      </div>
+      <div class="card"><div class="card-body" id="dash-recent"></div></div>
+    </div>
+
+    <!-- WORK ORDERS ──────────────────────────────────────── -->
+    <div class="view" id="view-work-orders">
+      <div id="desktop-header">
+        <h2>Work Orders</h2>
+        <button class="btn btn-primary" onclick="openWOModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Work Order
+        </button>
+      </div>
+      <div class="filter-bar">
+        <div class="search-wrap">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="search-input" type="search" placeholder="Search work orders…" id="wo-search" oninput="debouncedLoadWOs()">
+        </div>
+        <div class="filter-selects">
+          <select id="wo-filter-site" onchange="loadWorkOrders()">
+            <option value="">All Sites</option>
+          </select>
+          <select id="wo-filter-status" onchange="loadWorkOrders()">
+            <option value="">All Status</option>
+            <option value="open">Open</option>
+            <option value="in_progress">In Progress</option>
+            <option value="complete">Complete</option>
+          </select>
+          <select id="wo-filter-cat" onchange="loadWorkOrders()">
+            <option value="">All Categories</option>
+            <option value="landscape">Landscape</option>
+            <option value="equipment">Equipment</option>
+            <option value="building">Building</option>
+            <option value="vehicle">Vehicle</option>
+          </select>
+        </div>
+      </div>
+      <div id="wo-list"></div>
+    </div>
+
+    <!-- EQUIPMENT ────────────────────────────────────────── -->
+    <div class="view" id="view-equipment">
+      <div id="desktop-header">
+        <h2>Equipment & Meters</h2>
+        <button class="btn btn-primary" onclick="openEqModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Equipment
+        </button>
+      </div>
+      <div class="filter-bar">
+        <select id="eq-filter-site" onchange="loadEquipment()" style="flex:1">
+          <option value="">All Sites</option>
+        </select>
+      </div>
+      <div id="eq-list"></div>
+    </div>
+
+    <!-- SCHEDULES ────────────────────────────────────────── -->
+    <div class="view" id="view-schedules">
+      <div id="desktop-header">
+        <h2>Recurring Schedules</h2>
+        <button class="btn btn-primary" onclick="openTmplModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Schedule
+        </button>
+      </div>
+      <div id="tmpl-list"></div>
+    </div>
+  </main>
+
+  <!-- Bottom Navigation (mobile) -->
+  <nav id="bottom-nav">
+    <button class="nav-btn active" onclick="setView('dashboard',this)" data-view="dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Dashboard
+    </button>
+    <button class="nav-btn" onclick="setView('work-orders',this)" data-view="work-orders">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      Orders
+    </button>
+    <button class="nav-btn" onclick="setView('equipment',this)" data-view="equipment">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M5.34 5.34L3.93 3.93M12 2v2M12 20v2M4.93 19.07l1.41-1.41M18.66 18.66l1.41 1.41M2 12h2M20 12h2"/></svg>
+      Meters
+    </button>
+    <button class="nav-btn" onclick="setView('schedules',this)" data-view="schedules">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Schedules
+    </button>
+  </nav>
+
+  <!-- FAB (mobile work orders) -->
+  <button class="fab" id="fab" onclick="handleFab()" title="New">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
+</div>
+
+<!-- ── MODAL: Work Order ──────────────────────────────────────────────── -->
+<div class="modal-overlay" id="wo-modal-overlay" onclick="handleOverlayClick(event,'wo-modal-overlay')">
+  <div class="modal" id="wo-modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <span class="modal-title" id="wo-modal-title">New Work Order</span>
+      <button class="modal-close" onclick="closeModal('wo-modal-overlay')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="wo-id">
+      <div class="form-group">
+        <label class="form-label">Title <span>*</span></label>
+        <input class="form-input" id="wo-title" placeholder="e.g. Mow east pasture" autocomplete="off">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Site <span>*</span></label>
+          <select class="form-select" id="wo-site"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Category <span>*</span></label>
+          <select class="form-select" id="wo-category">
+            <option value="landscape">🌿 Landscape</option>
+            <option value="equipment">⚙️ Equipment</option>
+            <option value="building">🏗️ Building</option>
+            <option value="vehicle">🚛 Vehicle</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Priority</label>
+          <select class="form-select" id="wo-priority">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+            <option value="urgent">🚨 Urgent</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select class="form-select" id="wo-status">
+            <option value="open">Open</option>
+            <option value="in_progress">In Progress</option>
+            <option value="complete">Complete</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Assignee</label>
+          <select class="form-select" id="wo-assignee">
+            <option value="">Unassigned</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Due Date</label>
+          <input class="form-input" type="date" id="wo-due-date">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-textarea" id="wo-description" placeholder="Details about the work…" rows="3"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea class="form-textarea" id="wo-notes" placeholder="Additional notes, materials needed…" rows="2"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost flex-1" onclick="closeModal('wo-modal-overlay')">Cancel</button>
+        <button class="btn btn-danger btn-sm" id="wo-delete-btn" onclick="deleteWO()" style="display:none">Delete</button>
+        <button class="btn btn-primary flex-1" onclick="saveWO()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Equipment ──────────────────────────────────────────────── -->
+<div class="modal-overlay" id="eq-modal-overlay" onclick="handleOverlayClick(event,'eq-modal-overlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <span class="modal-title" id="eq-modal-title">Add Equipment</span>
+      <button class="modal-close" onclick="closeModal('eq-modal-overlay')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="eq-id">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Name <span>*</span></label>
+          <input class="form-input" id="eq-name" placeholder="e.g. John Deere Tractor" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Site <span>*</span></label>
+          <select class="form-select" id="eq-site"></select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <input class="form-input" id="eq-desc" placeholder="Model, serial number, notes…">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Meter Type <span>*</span></label>
+          <select class="form-select" id="eq-meter-type" onchange="updateMeterUI()">
+            <option value="percent">Percent (%) — fuel, tanks</option>
+            <option value="hours">Hours — engine hours</option>
+            <option value="miles">Miles — odometer</option>
+            <option value="custom">Custom unit</option>
+          </select>
+        </div>
+        <div class="form-group" id="eq-unit-group">
+          <label class="form-label">Unit Label</label>
+          <input class="form-input" id="eq-unit" placeholder="e.g. hrs, %, mi, gal">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Current Value</label>
+          <input class="form-input" type="number" id="eq-current" placeholder="0" step="any">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Alert Threshold</label>
+          <input class="form-input" type="number" id="eq-threshold" placeholder="Optional" step="any">
+        </div>
+      </div>
+      <div class="form-group" id="eq-direction-group">
+        <label class="form-label">Alert When</label>
+        <select class="form-select" id="eq-alert-direction">
+          <option value="below">Value drops BELOW threshold (e.g. low fuel)</option>
+          <option value="above">Value rises ABOVE threshold (e.g. service due)</option>
+        </select>
+        <p class="form-hint" id="eq-alert-hint">e.g. Alert when propane drops below 20%</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost flex-1" onclick="closeModal('eq-modal-overlay')">Cancel</button>
+        <button class="btn btn-danger btn-sm" id="eq-delete-btn" onclick="deleteEquipment()" style="display:none">Delete</button>
+        <button class="btn btn-primary flex-1" onclick="saveEquipment()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Meter Reading ──────────────────────────────────────────── -->
+<div class="modal-overlay" id="reading-modal-overlay" onclick="handleOverlayClick(event,'reading-modal-overlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <span class="modal-title" id="reading-modal-title">Log Reading</span>
+      <button class="modal-close" onclick="closeModal('reading-modal-overlay')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="reading-eq-id">
+      <div class="form-group">
+        <label class="form-label">Current Reading <span>*</span></label>
+        <input class="form-input" type="number" id="reading-value" placeholder="Enter value" step="any" style="font-size:24px;font-weight:700">
+        <p class="form-hint" id="reading-unit-hint"></p>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Recorded By</label>
+          <select class="form-select" id="reading-by">
+            <option value="">Anonymous</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notes</label>
+          <input class="form-input" id="reading-notes" placeholder="Optional notes">
+        </div>
+      </div>
+      <div class="section-header" style="margin-top:16px;margin-bottom:8px">
+        <span class="section-title">Recent Readings</span>
+      </div>
+      <div id="reading-history"></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost flex-1" onclick="closeModal('reading-modal-overlay')">Cancel</button>
+        <button class="btn btn-primary flex-1" onclick="saveReading()">Log Reading</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Schedule / Template ───────────────────────────────────── -->
+<div class="modal-overlay" id="tmpl-modal-overlay" onclick="handleOverlayClick(event,'tmpl-modal-overlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <span class="modal-title" id="tmpl-modal-title">New Schedule</span>
+      <button class="modal-close" onclick="closeModal('tmpl-modal-overlay')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="tmpl-id">
+      <div class="form-group">
+        <label class="form-label">Task Title <span>*</span></label>
+        <input class="form-input" id="tmpl-title" placeholder="e.g. Check propane levels" autocomplete="off">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Site <span>*</span></label>
+          <select class="form-select" id="tmpl-site"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Frequency <span>*</span></label>
+          <select class="form-select" id="tmpl-frequency">
+            <option value="daily">Daily</option>
+            <option value="weekly" selected>Weekly</option>
+            <option value="biweekly">Every 2 Weeks</option>
+            <option value="monthly">Monthly</option>
+            <option value="quarterly">Quarterly</option>
+            <option value="yearly">Yearly</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Category <span>*</span></label>
+          <select class="form-select" id="tmpl-category">
+            <option value="landscape">🌿 Landscape</option>
+            <option value="equipment">⚙️ Equipment</option>
+            <option value="building">🏗️ Building</option>
+            <option value="vehicle">🚛 Vehicle</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Priority</label>
+          <select class="form-select" id="tmpl-priority">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Assignee</label>
+          <select class="form-select" id="tmpl-assignee">
+            <option value="">Unassigned</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">First Due Date</label>
+          <input class="form-input" type="date" id="tmpl-start-date">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-textarea" id="tmpl-description" placeholder="Instructions for this recurring task…" rows="3"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost flex-1" onclick="closeModal('tmpl-modal-overlay')">Cancel</button>
+        <button class="btn btn-danger btn-sm" id="tmpl-delete-btn" onclick="deleteTemplate()" style="display:none">Delete</button>
+        <button class="btn btn-primary flex-1" onclick="saveTemplate()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Team ───────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="team-modal-overlay" onclick="handleOverlayClick(event,'team-modal-overlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <span class="modal-title">Manage Team</span>
+      <button class="modal-close" onclick="closeModal('team-modal-overlay')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group" style="display:flex;gap:8px">
+        <input class="form-input" id="team-new-name" placeholder="Team member name" style="flex:1" onkeydown="if(event.key==='Enter')addTeamMember()">
+        <button class="btn btn-primary" onclick="addTeamMember()">Add</button>
+      </div>
+      <div id="team-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════
+const S = {
+  view: 'dashboard',
+  sites: [],
+  team: [],
+  currentEditWO: null,
+  currentEditEq: null,
+  currentEditTmpl: null,
+  currentReadingEq: null,
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+const api = async (url, opts={}) => {
+  const r = await fetch(url, { headers:{'Content-Type':'application/json'}, ...opts });
+  if (!r.ok) { const e = await r.json().catch(()=>({error:'Request failed'})); throw new Error(e.error||'Request failed'); }
+  return r.json();
+};
+const post = (url,body) => api(url,{method:'POST',body:JSON.stringify(body)});
+const put  = (url,body) => api(url,{method:'PUT', body:JSON.stringify(body)});
+const del  = url => api(url,{method:'DELETE'});
+
+function toast(msg, dur=2500) {
+  const t=$('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),dur);
+}
+
+function fmtDate(d){
+  if(!d) return '';
+  const dt=new Date(d+'T12:00:00Z');
+  return dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+}
+function fmtDateTime(d){
+  if(!d) return '';
+  return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+}
+function isOverdue(d){ return d && d < new Date().toISOString().split('T')[0]; }
+function isDueSoon(d){
+  if(!d) return false;
+  const diff=(new Date(d)-new Date())/(1000*60*60*24);
+  return diff>=0 && diff<=3;
+}
+function today(){ return new Date().toISOString().split('T')[0]; }
+function timeAgo(str){
+  const diff=(Date.now()-new Date(str))/1000;
+  if(diff<60) return 'just now';
+  if(diff<3600) return `${Math.floor(diff/60)}m ago`;
+  if(diff<86400) return `${Math.floor(diff/3600)}h ago`;
+  return `${Math.floor(diff/86400)}d ago`;
+}
+function priorityColor(p){ return {urgent:'#dc2626',high:'#ea580c',medium:'#2563eb',low:'#94a3b8'}[p]||'#94a3b8'; }
+function statusDot(s){ return {open:'#94a3b8',in_progress:'#2563eb',complete:'#16a34a'}[s]||'#94a3b8'; }
+
+let _debounceTimer;
+function debouncedLoadWOs(){ clearTimeout(_debounceTimer); _debounceTimer=setTimeout(loadWorkOrders,300); }
+
+// ═══════════════════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════════════════
+function setView(view, btn) {
+  S.view = view;
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  $('view-'+view).classList.add('active');
+  // Update nav buttons
+  document.querySelectorAll('.nav-btn,.sidebar-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll(`[data-view="${view}"]`).forEach(b=>b.classList.add('active'));
+  // Mobile header
+  const titles = {'dashboard':'BigSur Maintenance','work-orders':'Work Orders','equipment':'Equipment & Meters','schedules':'Schedules'};
+  $('header-title').textContent = titles[view]||'BigSur Maintenance';
+  // FAB visibility
+  $('fab').style.display = ['work-orders','equipment','schedules'].includes(view)?'flex':'none';
+  // Load data
+  if(view==='dashboard') loadDashboard();
+  if(view==='work-orders') loadWorkOrders();
+  if(view==='equipment') loadEquipment();
+  if(view==='schedules') loadTemplates();
+}
+
+function handleFab(){
+  if(S.view==='work-orders') openWOModal();
+  else if(S.view==='equipment') openEqModal();
+  else if(S.view==='schedules') openTmplModal();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MODAL HELPERS
+// ═══════════════════════════════════════════════════════════════════
+function openModal(id){ $(id).classList.add('open'); document.body.style.overflow='hidden'; }
+function closeModal(id){ $(id).classList.remove('open'); document.body.style.overflow=''; }
+function handleOverlayClick(e,id){ if(e.target.id===id) closeModal(id); }
+
+function populateSiteSelect(selId, val=''){
+  const sel=$(selId); sel.innerHTML='';
+  S.sites.forEach(s=>{ const o=document.createElement('option'); o.value=s.id; o.textContent=s.name; sel.appendChild(o); });
+  if(val) sel.value=val;
+}
+function populateTeamSelect(selId, val=''){
+  const sel=$(selId);
+  const cur=sel.innerHTML.split('<option value="">')[0]; // keep first option
+  sel.innerHTML='<option value="">Unassigned</option>';
+  S.team.forEach(m=>{ const o=document.createElement('option'); o.value=m.name; o.textContent=m.name; sel.appendChild(o); });
+  if(val) sel.value=val;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════════════════
+async function loadDashboard(){
+  const data = await api('/api/dashboard').catch(()=>null);
+  if(!data) return;
+
+  // Alerts
+  const alertsEl = $('dash-alerts');
+  if(data.alerts.length){
+    alertsEl.innerHTML = data.alerts.map(a=>`
+      <div class="alert-banner">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span class="alert-banner-text"><strong>${a.name}</strong> (${a.site_name}): ${a.current_value}${a.meter_unit} — below alert threshold of ${a.alert_threshold}${a.meter_unit}</span>
+      </div>`).join('');
+  } else alertsEl.innerHTML='';
+
+  // Site stats
+  $('dash-stats').innerHTML = data.stats.map(s=>`
+    <div class="stat-card">
+      <div class="stat-site">${s.site.name}</div>
+      <div class="stat-row">
+        <div class="stat-item"><div class="stat-num open">${s.open}</div><div class="stat-label">Open</div></div>
+        <div class="stat-item"><div class="stat-num in-progress">${s.in_progress}</div><div class="stat-label">Active</div></div>
+        <div class="stat-item"><div class="stat-num complete">${s.complete}</div><div class="stat-label">Done</div></div>
+      </div>
+      ${s.overdue>0?`<div class="stat-overdue">⚠️ ${s.overdue} overdue</div>`:''}
+    </div>`).join('');
+
+  // Upcoming
+  if(data.upcoming.length){
+    $('dash-upcoming').innerHTML = data.upcoming.map(wo=>`
+      <div class="wo-card" onclick="openWOModal(${wo.id})">
+        <div class="wo-priority-bar priority-${wo.priority}"></div>
+        <div class="wo-body">
+          <div class="wo-title">${esc(wo.title)}</div>
+          <div class="wo-bottom">
+            <span class="wo-site">${wo.site_name}</span>
+            <span class="badge badge-${wo.status}">${fmtStatus(wo.status)}</span>
+            <span class="wo-due ${isOverdue(wo.due_date)?'overdue':isDueSoon(wo.due_date)?'soon':''}">${fmtDate(wo.due_date)}</span>
+          </div>
+        </div>
+      </div>`).join('');
+  } else {
+    $('dash-upcoming').innerHTML='<div style="font-size:13px;color:var(--text-muted);padding:8px 0">Nothing due in the next 7 days ✓</div>';
+  }
+
+  // Recent
+  if(data.recent.length){
+    $('dash-recent').innerHTML = data.recent.map(wo=>`
+      <div class="activity-item" onclick="openWOModal(${wo.id})">
+        <div class="activity-dot" style="background:${statusDot(wo.status)}"></div>
+        <div class="activity-content">
+          <div class="activity-title">${esc(wo.title)}</div>
+          <div class="activity-sub">${wo.site_name} · <span class="badge badge-${wo.category}" style="padding:1px 6px">${wo.category}</span></div>
+        </div>
+        <div class="activity-time">${timeAgo(wo.updated_at)}</div>
+      </div>`).join('');
+  } else {
+    $('dash-recent').innerHTML='<div class="empty" style="padding:24px 0"><p>No activity yet</p><small>Create your first work order</small></div>';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// WORK ORDERS
+// ═══════════════════════════════════════════════════════════════════
+async function loadWorkOrders(){
+  const params = new URLSearchParams();
+  const site=$('wo-filter-site').value, status=$('wo-filter-status').value,
+        cat=$('wo-filter-cat').value, search=$('wo-search').value;
+  if(site) params.set('site',site);
+  if(status) params.set('status',status);
+  if(cat) params.set('category',cat);
+  if(search) params.set('search',search);
+  const wos = await api('/api/work-orders?'+params).catch(()=>[]);
+  renderWOs(wos);
+}
+
+function renderWOs(wos){
+  if(!wos.length){
+    $('wo-list').innerHTML=`<div class="empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      <p>No work orders found</p><small>Tap + to create one</small></div>`;
+    return;
+  }
+  $('wo-list').innerHTML=wos.map(wo=>`
+    <div class="wo-card" onclick="openWOModal(${wo.id})">
+      <div class="wo-priority-bar priority-${wo.priority}"></div>
+      <div class="wo-body">
+        <div class="wo-title">${esc(wo.title)}</div>
+        <div class="wo-meta">
+          <span class="wo-site">${wo.site_name}</span>
+          <span class="badge badge-${wo.category}">${catLabel(wo.category)}</span>
+          <span class="badge badge-${wo.status}">${fmtStatus(wo.status)}</span>
+        </div>
+        <div class="wo-bottom">
+          ${wo.assignee?`<span class="wo-assignee"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><circle cx="12" cy="8" r="4"/><path d="M4 20v-1a8 8 0 0 1 16 0v1"/></svg>${esc(wo.assignee)}</span>`:'<span></span>'}
+          ${wo.due_date?`<span class="wo-due ${isOverdue(wo.due_date)&&wo.status!=='complete'?'overdue':isDueSoon(wo.due_date)&&wo.status!=='complete'?'soon':''}">${isOverdue(wo.due_date)&&wo.status!=='complete'?'⚠️ ':''} Due ${fmtDate(wo.due_date)}</span>`:''}
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function openWOModal(id){
+  S.currentEditWO = null;
+  $('wo-modal-title').textContent = id?'Edit Work Order':'New Work Order';
+  $('wo-delete-btn').style.display = id?'inline-flex':'none';
+  $('wo-id').value='';
+  $('wo-title').value=''; $('wo-description').value=''; $('wo-notes').value='';
+  $('wo-priority').value='medium'; $('wo-status').value='open'; $('wo-due-date').value=''; $('wo-assignee').value='';
+  populateSiteSelect('wo-site'); populateTeamSelect('wo-assignee');
+
+  if(id){
+    api('/api/work-orders?').then(()=>{}).catch(()=>{});
+    // Fetch single WO from list (we have it in DOM data, so just fetch all filtered)
+    api('/api/work-orders').then(wos=>{
+      const wo=wos.find(w=>w.id==id); if(!wo) return;
+      S.currentEditWO=wo;
+      $('wo-id').value=wo.id;
+      $('wo-title').value=wo.title;
+      $('wo-description').value=wo.description||'';
+      $('wo-notes').value=wo.notes||'';
+      populateSiteSelect('wo-site',wo.site_id);
+      $('wo-category').value=wo.category;
+      $('wo-priority').value=wo.priority;
+      $('wo-status').value=wo.status;
+      populateTeamSelect('wo-assignee',wo.assignee);
+      $('wo-due-date').value=wo.due_date||'';
+    });
+  }
+  openModal('wo-modal-overlay');
+  setTimeout(()=>$('wo-title').focus(),300);
+}
+
+async function saveWO(){
+  const id=$('wo-id').value;
+  const body={
+    site_id: parseInt($('wo-site').value),
+    title: $('wo-title').value.trim(),
+    description: $('wo-description').value.trim(),
+    notes: $('wo-notes').value.trim(),
+    category: $('wo-category').value,
+    priority: $('wo-priority').value,
+    assignee: $('wo-assignee').value,
+    status: $('wo-status').value,
+    due_date: $('wo-due-date').value||null,
+  };
+  if(!body.title){ toast('Title is required'); $('wo-title').focus(); return; }
+  try{
+    if(id) await put('/api/work-orders/'+id, body);
+    else await post('/api/work-orders', body);
+    closeModal('wo-modal-overlay');
+    toast(id?'Work order updated':'Work order created');
+    loadWorkOrders(); loadDashboard();
+  } catch(e){ toast('Error: '+e.message); }
+}
+
+async function deleteWO(){
+  if(!confirm('Delete this work order?')) return;
+  await del('/api/work-orders/'+$('wo-id').value);
+  closeModal('wo-modal-overlay');
+  toast('Work order deleted');
+  loadWorkOrders(); loadDashboard();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// EQUIPMENT
+// ═══════════════════════════════════════════════════════════════════
+async function loadEquipment(){
+  const site=$('eq-filter-site').value;
+  const params=site?'?site='+site:'';
+  const eqs = await api('/api/equipment'+params).catch(()=>[]);
+  renderEquipment(eqs);
+}
+
+function renderEquipment(eqs){
+  if(!eqs.length){
+    $('eq-list').innerHTML=`<div class="empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M5.34 5.34L3.93 3.93M12 2v2M12 20v2M4.93 19.07l1.41-1.41M18.66 18.66l1.41 1.41M2 12h2M20 12h2"/></svg>
+      <p>No equipment tracked</p><small>Tap + to add equipment</small></div>`;
+    return;
+  }
+  $('eq-list').innerHTML=eqs.map(eq=>{
+    const isPct=eq.meter_type==='percent';
+    const isAlert=eq.alert_threshold!=null&&(
+      (eq.alert_direction==='below'&&eq.current_value<=eq.alert_threshold)||
+      (eq.alert_direction==='above'&&eq.current_value>=eq.alert_threshold));
+    const pct=isPct?Math.min(100,Math.max(0,eq.current_value)):null;
+    const barClass=pct===null?'':pct>50?'high':pct>20?'medium':'low';
+    return `<div class="eq-card">
+      <div class="eq-header">
+        <div>
+          <div class="eq-name">${esc(eq.name)}</div>
+          <div class="eq-site">${eq.site_name}</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="icon-btn" onclick="openEqModal(${eq.id})" title="Edit">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="eq-meter">
+        <span class="eq-value">${eq.current_value}</span><span class="eq-unit"> ${eq.meter_unit}</span>
+        ${eq.description?`<div style="font-size:12px;color:var(--text-muted);margin-top:2px">${esc(eq.description)}</div>`:''}
+        ${isPct?`<div class="meter-bar-wrap"><div class="meter-bar ${barClass}" style="width:${pct}%"></div></div>`:''}
+      </div>
+      ${isAlert?`<div class="eq-alert">⚠️ Alert: ${eq.alert_direction==='below'?'Level low':'Threshold reached'} (threshold: ${eq.alert_threshold}${eq.meter_unit})</div>`:''}
+      <div class="eq-footer">
+        <span class="eq-last-reading">Updated ${timeAgo(eq.created_at)}</span>
+        <button class="btn btn-primary btn-sm" onclick="openReadingModal(${eq.id},'${esc(eq.name)}','${eq.meter_unit}',${eq.current_value})">Log Reading</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openEqModal(id){
+  S.currentEditEq=null;
+  $('eq-modal-title').textContent=id?'Edit Equipment':'Add Equipment';
+  $('eq-delete-btn').style.display=id?'inline-flex':'none';
+  $('eq-id').value=''; $('eq-name').value=''; $('eq-desc').value='';
+  $('eq-meter-type').value='percent'; $('eq-unit').value='%';
+  $('eq-current').value=''; $('eq-threshold').value='';
+  $('eq-alert-direction').value='below';
+  populateSiteSelect('eq-site');
+  if(id){
+    api('/api/equipment').then(eqs=>{
+      const eq=eqs.find(e=>e.id==id); if(!eq) return;
+      S.currentEditEq=eq;
+      $('eq-id').value=eq.id; $('eq-name').value=eq.name; $('eq-desc').value=eq.description||'';
+      populateSiteSelect('eq-site',eq.site_id);
+      $('eq-meter-type').value=eq.meter_type; $('eq-unit').value=eq.meter_unit;
+      $('eq-current').value=eq.current_value; $('eq-threshold').value=eq.alert_threshold??'';
+      $('eq-alert-direction').value=eq.alert_direction||'below';
+      updateMeterUI();
+    });
+  } else updateMeterUI();
+  openModal('eq-modal-overlay');
+}
+
+function updateMeterUI(){
+  const t=$('eq-meter-type').value;
+  const unitDefaults={percent:'%',hours:'hrs',miles:'mi',custom:''};
+  if(!$('eq-id').value) $('eq-unit').value=unitDefaults[t]||'';
+  $('eq-alert-hint').textContent=t==='percent'?'e.g. Alert when propane drops below 20%':t==='hours'?'e.g. Alert when hours exceed 250 (service interval)':'';
+}
+
+async function saveEquipment(){
+  const id=$('eq-id').value;
+  const body={
+    site_id:parseInt($('eq-site').value),
+    name:$('eq-name').value.trim(),
+    description:$('eq-desc').value.trim(),
+    meter_type:$('eq-meter-type').value,
+    meter_unit:$('eq-unit').value.trim()||$('eq-meter-type').value,
+    current_value:parseFloat($('eq-current').value)||0,
+    alert_threshold:$('eq-threshold').value!==''?parseFloat($('eq-threshold').value):null,
+    alert_direction:$('eq-alert-direction').value,
+  };
+  if(!body.name){ toast('Name is required'); return; }
+  try{
+    if(id) await put('/api/equipment/'+id,body);
+    else await post('/api/equipment',body);
+    closeModal('eq-modal-overlay');
+    toast(id?'Equipment updated':'Equipment added');
+    loadEquipment(); loadDashboard();
+  } catch(e){ toast('Error: '+e.message); }
+}
+
+async function deleteEquipment(){
+  if(!confirm('Delete this equipment and all its readings?')) return;
+  await del('/api/equipment/'+$('eq-id').value);
+  closeModal('eq-modal-overlay');
+  toast('Equipment deleted');
+  loadEquipment();
+}
+
+// ── Meter Readings ───────────────────────────────────────────────
+async function openReadingModal(id,name,unit,current){
+  S.currentReadingEq={id,name,unit,current};
+  $('reading-eq-id').value=id;
+  $('reading-modal-title').textContent='Log: '+name;
+  $('reading-unit-hint').textContent=`Current: ${current} ${unit}`;
+  $('reading-value').value='';
+  $('reading-notes').value='';
+  populateTeamSelect('reading-by');
+  // Load history
+  const readings=await api('/api/equipment/'+id+'/readings').catch(()=>[]);
+  $('reading-history').innerHTML=readings.length?readings.slice(0,8).map(r=>`
+    <div class="history-item">
+      <span class="history-val">${r.value} <small style="font-size:12px;font-weight:400;color:var(--text-muted)">${unit}</small></span>
+      <div class="history-detail">
+        ${r.notes?`<div class="history-note">${esc(r.notes)}</div>`:''}
+        <div class="history-meta">${r.recorded_by||'Unknown'} · ${fmtDateTime(r.created_at)}</div>
+      </div>
+    </div>`).join('')
+    :'<div style="font-size:13px;color:var(--text-muted);padding:8px 0">No readings yet</div>';
+  openModal('reading-modal-overlay');
+  setTimeout(()=>$('reading-value').focus(),300);
+}
+
+async function saveReading(){
+  const id=$('reading-eq-id').value;
+  const value=parseFloat($('reading-value').value);
+  if(isNaN(value)){ toast('Enter a valid number'); return; }
+  try{
+    await post('/api/equipment/'+id+'/readings',{value,notes:$('reading-notes').value.trim(),recorded_by:$('reading-by').value});
+    closeModal('reading-modal-overlay');
+    toast('Reading logged');
+    loadEquipment(); loadDashboard();
+  } catch(e){ toast('Error: '+e.message); }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SCHEDULES / TEMPLATES
+// ═══════════════════════════════════════════════════════════════════
+async function loadTemplates(){
+  const tmpls=await api('/api/templates').catch(()=>[]);
+  renderTemplates(tmpls);
+}
+
+const freqLabel={daily:'Daily',weekly:'Weekly',biweekly:'Every 2 Weeks',monthly:'Monthly',quarterly:'Quarterly',yearly:'Yearly'};
+
+function renderTemplates(tmpls){
+  if(!tmpls.length){
+    $('tmpl-list').innerHTML=`<div class="empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <p>No recurring schedules</p><small>Tap + to create one</small></div>`;
+    return;
+  }
+  $('tmpl-list').innerHTML=tmpls.map(t=>`
+    <div class="tmpl-card" style="${!t.is_active?'opacity:.6':''}">
+      <div class="tmpl-header">
+        <div>
+          <div class="tmpl-title">${esc(t.title)}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${t.site_name}</div>
+        </div>
+        <label class="toggle-switch" title="${t.is_active?'Active — click to pause':'Paused — click to activate'}">
+          <input type="checkbox" ${t.is_active?'checked':''} onchange="toggleTemplate(${t.id},this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="tmpl-meta">
+        <span class="badge badge-${t.category}">${catLabel(t.category)}</span>
+        <span class="badge badge-${t.priority}">${t.priority}</span>
+        ${t.assignee?`<span style="font-size:12px;color:var(--text-muted)">${esc(t.assignee)}</span>`:''}
+      </div>
+      <div class="tmpl-footer">
+        <div>
+          <span class="tmpl-freq">${freqLabel[t.frequency]||t.frequency}</span>
+          ${t.next_due_date?`<span class="tmpl-next"> · Next: ${fmtDate(t.next_due_date)}</span>`:''}
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="generateNow(${t.id})" title="Generate work order now">▶ Now</button>
+          <button class="icon-btn" onclick="openTmplModal(${t.id})">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function openTmplModal(id){
+  S.currentEditTmpl=null;
+  $('tmpl-modal-title').textContent=id?'Edit Schedule':'New Schedule';
+  $('tmpl-delete-btn').style.display=id?'inline-flex':'none';
+  $('tmpl-id').value=''; $('tmpl-title').value=''; $('tmpl-description').value='';
+  $('tmpl-frequency').value='weekly'; $('tmpl-category').value='landscape';
+  $('tmpl-priority').value='medium'; $('tmpl-start-date').value=today();
+  populateSiteSelect('tmpl-site'); populateTeamSelect('tmpl-assignee');
+  if(id){
+    api('/api/templates').then(ts=>{
+      const t=ts.find(x=>x.id==id); if(!t) return;
+      S.currentEditTmpl=t;
+      $('tmpl-id').value=t.id; $('tmpl-title').value=t.title; $('tmpl-description').value=t.description||'';
+      populateSiteSelect('tmpl-site',t.site_id); $('tmpl-frequency').value=t.frequency;
+      $('tmpl-category').value=t.category; $('tmpl-priority').value=t.priority;
+      populateTeamSelect('tmpl-assignee',t.assignee);
+      $('tmpl-start-date').value=t.next_due_date||today();
+    });
+  }
+  openModal('tmpl-modal-overlay');
+}
+
+async function saveTemplate(){
+  const id=$('tmpl-id').value;
+  const body={
+    site_id:parseInt($('tmpl-site').value),
+    title:$('tmpl-title').value.trim(),
+    description:$('tmpl-description').value.trim(),
+    category:$('tmpl-category').value,
+    priority:$('tmpl-priority').value,
+    assignee:$('tmpl-assignee').value,
+    frequency:$('tmpl-frequency').value,
+    start_date:$('tmpl-start-date').value||null,
+  };
+  if(!body.title){ toast('Title is required'); return; }
+  try{
+    if(id) await put('/api/templates/'+id,{...body,next_due_date:body.start_date});
+    else await post('/api/templates',body);
+    closeModal('tmpl-modal-overlay');
+    toast(id?'Schedule updated':'Schedule created');
+    loadTemplates();
+  } catch(e){ toast('Error: '+e.message); }
+}
+
+async function deleteTemplate(){
+  if(!confirm('Delete this schedule? Existing work orders will remain.')) return;
+  await del('/api/templates/'+$('tmpl-id').value);
+  closeModal('tmpl-modal-overlay');
+  toast('Schedule deleted');
+  loadTemplates();
+}
+
+async function toggleTemplate(id,active){
+  await put('/api/templates/'+id,{is_active:active?1:0});
+  toast(active?'Schedule activated':'Schedule paused');
+  loadTemplates();
+}
+
+async function generateNow(id){
+  try{
+    await post('/api/templates/'+id+'/generate',{});
+    toast('Work order created');
+    loadTemplates(); loadDashboard();
+  } catch(e){ toast('Error: '+e.message); }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TEAM
+// ═══════════════════════════════════════════════════════════════════
+function openTeamModal(){
+  renderTeamList(); openModal('team-modal-overlay');
+  setTimeout(()=>$('team-new-name').focus(),300);
+}
+function renderTeamList(){
+  $('team-list').innerHTML=S.team.length?S.team.map(m=>`
+    <div class="team-item">
+      <span class="team-name">${esc(m.name)}</span>
+      <button class="icon-btn danger" onclick="removeTeamMember(${m.id})" title="Remove">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+      </button>
+    </div>`).join('')
+    :'<div style="font-size:13px;color:var(--text-muted);padding:12px 0;text-align:center">No team members yet</div>';
+}
+async function addTeamMember(){
+  const name=$('team-new-name').value.trim(); if(!name) return;
+  try{ const m=await post('/api/team',{name}); S.team.push(m); $('team-new-name').value=''; renderTeamList(); toast(name+' added'); }
+  catch(e){ toast('Error: '+e.message); }
+}
+async function removeTeamMember(id){
+  if(!confirm('Remove team member?')) return;
+  await del('/api/team/'+id); S.team=S.team.filter(m=>m.id!==id); renderTeamList(); toast('Removed');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// LABELS / HELPERS
+// ═══════════════════════════════════════════════════════════════════
+function catLabel(c){ return {landscape:'🌿 Landscape',equipment:'⚙️ Equipment',building:'🏗️ Building',vehicle:'🚛 Vehicle'}[c]||c; }
+function fmtStatus(s){ return {open:'Open',in_progress:'In Progress',complete:'Complete'}[s]||s; }
+function esc(str){ const d=document.createElement('div'); d.textContent=str||''; return d.innerHTML; }
+
+// ═══════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════
+async function init(){
+  // Load global data
+  [S.sites, S.team] = await Promise.all([
+    api('/api/sites').catch(()=>[]),
+    api('/api/team').catch(()=>[]),
+  ]);
+
+  // Populate filter selects with sites
+  ['wo-filter-site','eq-filter-site'].forEach(id=>{
+    const sel=$(id);
+    S.sites.forEach(s=>{ const o=document.createElement('option'); o.value=s.id; o.textContent=s.name; sel.appendChild(o); });
+  });
+
+  // Set today as default for WO due date
+  $('wo-due-date').value=today();
+  $('tmpl-start-date').value=today();
+
+  // Load initial view
+  setView('dashboard', null);
+  $('fab').style.display='none';
+}
+
+init();
+</script>
+</body>
+</html>
