@@ -98,22 +98,6 @@ db.exec(`
     created_at   TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (equipment_id) REFERENCES equipment(id)
   );
-
-  CREATE TABLE IF NOT EXISTS meter_maintenance_templates (
-    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
-    equipment_id         INTEGER NOT NULL,
-    title                TEXT NOT NULL,
-    description          TEXT DEFAULT '',
-    category             TEXT NOT NULL DEFAULT 'equipment',
-    priority             TEXT NOT NULL DEFAULT 'medium',
-    assignee             TEXT DEFAULT '',
-    interval_hours       REAL NOT NULL,
-    last_triggered_hours REAL DEFAULT 0,
-    next_trigger_hours   REAL NOT NULL,
-    is_active            INTEGER DEFAULT 1,
-    created_at           TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (equipment_id) REFERENCES equipment(id)
-  );
 `);
 
 // Safe migrations for existing databases
@@ -392,74 +376,7 @@ app.post('/api/equipment/:id/readings', (req, res) => {
   const { value, notes='', recorded_by='' } = req.body;
   db.prepare('INSERT INTO meter_readings (equipment_id,value,notes,recorded_by) VALUES (?,?,?,?)').run(req.params.id,value,notes,recorded_by);
   db.prepare('UPDATE equipment SET current_value=? WHERE id=?').run(value, req.params.id);
-
-  // Check meter-based maintenance triggers
-  const eq = db.prepare(EQ_SELECT+' WHERE e.id=?').get(req.params.id);
-  const triggered = [];
-  const templates = db.prepare(
-    'SELECT * FROM meter_maintenance_templates WHERE equipment_id=? AND is_active=1 AND next_trigger_hours <= ?'
-  ).all(req.params.id, value);
-
-  for (const t of templates) {
-    const r = db.prepare(`
-      INSERT INTO work_orders (site_id, equipment_id, title, description, category, priority, assignee, status, due_date, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 'open', date('now'), ?)
-    `).run(
-      eq.site_id, eq.id,
-      t.title, t.description || '',
-      t.category, t.priority, t.assignee || '',
-      `Auto-generated: every-${t.interval_hours}-${eq.meter_unit} service triggered at ${value} ${eq.meter_unit}`
-    );
-    triggered.push({ id: r.lastInsertRowid, title: t.title, interval: t.interval_hours });
-    // Advance next_trigger past current reading (handles large gaps between logs)
-    let next = t.next_trigger_hours;
-    while (next <= value) next += t.interval_hours;
-    db.prepare(
-      'UPDATE meter_maintenance_templates SET last_triggered_hours=next_trigger_hours, next_trigger_hours=? WHERE id=?'
-    ).run(next, t.id);
-  }
-
-  res.json({ equipment: eq, triggered });
-});
-
-// ─── Routes: Meter Maintenance Templates ──────────────────────────────────────
-app.get('/api/equipment/:id/maintenance', (req, res) => {
-  res.json(db.prepare(
-    'SELECT * FROM meter_maintenance_templates WHERE equipment_id=? ORDER BY next_trigger_hours ASC'
-  ).all(req.params.id));
-});
-
-app.post('/api/equipment/:id/maintenance', (req, res) => {
-  const { title, description='', category='equipment', priority='medium', assignee='', interval_hours, next_trigger_hours } = req.body;
-  if (!title || !interval_hours) return res.status(400).json({ error: 'title and interval_hours required' });
-  const r = db.prepare(`
-    INSERT INTO meter_maintenance_templates
-      (equipment_id, title, description, category, priority, assignee, interval_hours, next_trigger_hours)
-    VALUES (?,?,?,?,?,?,?,?)
-  `).run(req.params.id, title, description, category, priority, assignee, interval_hours, next_trigger_hours || interval_hours);
-  res.status(201).json(db.prepare('SELECT * FROM meter_maintenance_templates WHERE id=?').get(r.lastInsertRowid));
-});
-
-app.put('/api/maintenance/:id', (req, res) => {
-  const { title, description, category, priority, assignee, interval_hours, next_trigger_hours, is_active } = req.body;
-  db.prepare(`
-    UPDATE meter_maintenance_templates SET
-      title              = COALESCE(?, title),
-      description        = COALESCE(?, description),
-      category           = COALESCE(?, category),
-      priority           = COALESCE(?, priority),
-      assignee           = COALESCE(?, assignee),
-      interval_hours     = COALESCE(?, interval_hours),
-      next_trigger_hours = COALESCE(?, next_trigger_hours),
-      is_active          = COALESCE(?, is_active)
-    WHERE id=?
-  `).run(title, description, category, priority, assignee, interval_hours, next_trigger_hours, is_active, req.params.id);
-  res.json(db.prepare('SELECT * FROM meter_maintenance_templates WHERE id=?').get(req.params.id));
-});
-
-app.delete('/api/maintenance/:id', (req, res) => {
-  db.prepare('DELETE FROM meter_maintenance_templates WHERE id=?').run(req.params.id);
-  res.json({ success: true });
+  res.json(db.prepare(EQ_SELECT+' WHERE e.id=?').get(req.params.id));
 });
 
 // ─── Routes: Recurring Templates ──────────────────────────────────────────────
