@@ -123,6 +123,18 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 .modal-footer{display:flex;gap:10px;padding-top:16px;border-top:1px solid var(--border);flex-wrap:wrap}
 .flex-1{flex:1}
 
+/* ── Bilingual fields ── */
+.lang-block { margin-bottom: 14px; }
+.lang-label-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+.lang-tag { font-size:11px; font-weight:700; letter-spacing:.06em; padding:2px 7px; border-radius:999px; }
+.lang-tag.en { background:#dbeafe; color:#1d4ed8; }
+.lang-tag.es { background:#dcfce7; color:#15803d; }
+.translate-btn { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; color:var(--primary); background:none; border:1px solid var(--primary-light); border-radius:999px; padding:3px 10px; cursor:pointer; transition:background .15s; }
+.translate-btn:hover { background:#dbeafe; }
+.translate-btn:disabled { opacity:.5; cursor:not-allowed; }
+.translate-btn svg { width:13px; height:13px; }
+.translating-hint { font-size:12px; color:var(--text-muted); margin-top:4px; min-height:16px; }
+
 /* ── Checklist ── */
 .checklist-section{margin-bottom:14px}
 .checklist-items{margin-bottom:8px}
@@ -228,6 +240,18 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
 .dash-filter-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
 .dash-filter-bar select{border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 12px;font-size:13px;background:var(--surface);color:var(--text);outline:none;appearance:none;flex:1;min-width:120px}
 .dash-filter-bar select:focus{border-color:var(--primary-light)}
+
+/* ── Equipment log ── */
+.eq-wo-card{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;align-items:flex-start}
+.eq-wo-card:last-child{border-bottom:none}
+.eq-wo-bar{width:3px;border-radius:2px;flex-shrink:0;align-self:stretch;min-height:36px}
+.eq-wo-body{flex:1;min-width:0}
+.eq-wo-title{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.eq-wo-title-es{font-size:12px;color:var(--success);font-style:italic}
+.eq-wo-meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;align-items:center;font-size:12px;color:var(--text-muted)}
+.eq-log-header{background:var(--bg);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px}
+.eq-log-meter{font-size:22px;font-weight:700}
+.eq-log-sub{font-size:12px;color:var(--text-muted);margin-top:2px}
 
 /* ── Desktop ── */
 @media(min-width:768px){
@@ -400,14 +424,32 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
     </div>
     <div class="modal-body">
       <input type="hidden" id="wo-id">
-      <div class="form-group">
-        <label class="form-label">Title <span>*</span></label>
-        <input class="form-input" id="wo-title" placeholder="e.g. Mow east pasture" autocomplete="off">
+      <!-- Title — bilingual -->
+      <div class="lang-block">
+        <div class="lang-label-row">
+          <label class="form-label" style="margin:0">Title <span style="color:var(--danger)">*</span></label>
+          <span class="lang-tag en">EN</span>
+        </div>
+        <input class="form-input" id="wo-title" placeholder="e.g. Mow east pasture" autocomplete="off" oninput="scheduleTranslate('title')">
+      </div>
+      <div class="lang-block">
+        <div class="lang-label-row">
+          <label class="form-label" style="margin:0">Título</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="translating-hint" id="title-translate-hint"></span>
+            <button class="translate-btn" id="title-translate-btn" onclick="translateField('title')" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8l6 6"/><path d="M4 14l6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="M22 22l-5-10-5 10"/><path d="M14 18h6"/></svg>
+              Translate
+            </button>
+            <span class="lang-tag es">ES</span>
+          </div>
+        </div>
+        <input class="form-input" id="wo-title-es" placeholder="Se completará automáticamente…" autocomplete="off" style="border-color:#bbf7d0" oninput="markManualEdit('title')">
       </div>
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">Site <span>*</span></label>
-          <select class="form-select" id="wo-site"></select>
+          <select class="form-select" id="wo-site" onchange="populateEquipmentSelect(this.value)"></select>
         </div>
         <div class="form-group">
           <label class="form-label">Category <span>*</span></label>
@@ -418,6 +460,12 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
             <option value="vehicle">🚛 Vehicle</option>
           </select>
         </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Equipment <span style="font-weight:400;color:var(--text-muted)">(optional — links this order to a specific machine)</span></label>
+        <select class="form-select" id="wo-equipment" style="border-color:#bbf7d0">
+          <option value="">Not linked to equipment</option>
+        </select>
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -448,9 +496,27 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
           <input class="form-input" type="date" id="wo-due-date">
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Description</label>
-        <textarea class="form-textarea" id="wo-description" placeholder="Details about the work…" rows="2"></textarea>
+      <!-- Description — bilingual -->
+      <div class="lang-block">
+        <div class="lang-label-row">
+          <label class="form-label" style="margin:0">Description</label>
+          <span class="lang-tag en">EN</span>
+        </div>
+        <textarea class="form-textarea" id="wo-description" placeholder="Details about the work…" rows="2" oninput="scheduleTranslate('description')"></textarea>
+      </div>
+      <div class="lang-block">
+        <div class="lang-label-row">
+          <label class="form-label" style="margin:0">Descripción</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="translating-hint" id="description-translate-hint"></span>
+            <button class="translate-btn" id="description-translate-btn" onclick="translateField('description')" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8l6 6"/><path d="M4 14l6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="M22 22l-5-10-5 10"/><path d="M14 18h6"/></svg>
+              Translate
+            </button>
+            <span class="lang-tag es">ES</span>
+          </div>
+        </div>
+        <textarea class="form-textarea" id="wo-description-es" placeholder="Se completará automáticamente…" rows="2" style="border-color:#bbf7d0" oninput="markManualEdit('description')"></textarea>
       </div>
 
       <!-- Checklist -->
@@ -691,6 +757,29 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
   </div>
 </div>
 
+<!-- ── MODAL: Equipment Work Log ─────────────────────────────── -->
+<div class="modal-overlay" id="eq-log-modal-overlay" onclick="handleOverlayClick(event,'eq-log-modal-overlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <span class="modal-title" id="eq-log-modal-title">Work Log</span>
+      <button class="modal-close" onclick="closeModal('eq-log-modal-overlay')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div id="eq-log-header-info"></div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+        <button class="btn btn-primary btn-sm" id="eq-log-new-wo-btn" onclick="createWOFromEquipment()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Work Order
+        </button>
+      </div>
+      <div id="eq-log-list"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Lightbox -->
 <div id="lightbox" onclick="closeLightbox()">
   <button id="lightbox-close" onclick="closeLightbox()">✕</button>
@@ -708,8 +797,10 @@ const S = {
   view: 'dashboard',
   sites: [],
   team: [],
-  checklist: [],   // current WO checklist being edited
-  woPhotos: [],    // current WO photos
+  allEquipment: [],   // all equipment, used to populate WO dropdown
+  checklist: [],      // current WO checklist being edited
+  woPhotos: [],       // current WO photos
+  currentLogEq: null, // equipment currently shown in work log modal
 };
 
 // ═══════════════════════════════════════════════════════
@@ -739,6 +830,53 @@ function fmtStatus(s){ return {open:'Open',in_progress:'In Progress',complete:'C
 
 let _debounceTimer;
 function debouncedLoadWOs(){ clearTimeout(_debounceTimer); _debounceTimer=setTimeout(loadWorkOrders,300); }
+
+// ── Translation ──────────────────────────────────────────────────
+const _translateTimers = {};
+
+async function translateText(text) {
+  if (!text.trim()) return '';
+  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|es`;
+  const r = await fetch(url);
+  const data = await r.json();
+  if (data.responseStatus === 200) return data.responseData.translatedText;
+  throw new Error('Translation unavailable');
+}
+
+// Called on every keystroke — waits 1.2s after the user stops typing, then auto-translates
+function scheduleTranslate(field) {
+  clearTimeout(_translateTimers[field]);
+  _translateTimers[field] = setTimeout(() => translateField(field, true), 1200);
+}
+
+async function translateField(field, auto=false) {
+  const srcEl  = $(field === 'title' ? 'wo-title' : 'wo-description');
+  const dstEl  = $(field === 'title' ? 'wo-title-es' : 'wo-description-es');
+  const hint   = $(`${field}-translate-hint`);
+  const btn    = $(`${field}-translate-btn`);
+  const text   = srcEl.value.trim();
+  if (!text) { dstEl.value = ''; return; }
+  // Don't overwrite a manually edited Spanish field on auto-translate
+  if (auto && dstEl.dataset.manuallyEdited === 'true') return;
+  hint.textContent = 'Translating…';
+  if (btn) btn.disabled = true;
+  try {
+    const translated = await translateText(text);
+    dstEl.value = translated;
+    dstEl.dataset.manuallyEdited = 'false';
+    hint.textContent = '';
+  } catch {
+    hint.textContent = auto ? '' : 'Could not translate — check connection';
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+// Mark a Spanish field as manually edited so auto-translate won't overwrite it
+function markManualEdit(field) {
+  const el = $(field === 'title' ? 'wo-title-es' : 'wo-description-es');
+  if (el) el.dataset.manuallyEdited = 'true';
+}
 
 // ═══════════════════════════════════════════════════════
 // NAVIGATION
@@ -779,6 +917,23 @@ function populateTeamSelect(selId, val=''){
   const sel=$(selId); sel.innerHTML='<option value="">Unassigned</option>';
   S.team.forEach(m=>{ const o=document.createElement('option'); o.value=m.name; o.textContent=m.name; sel.appendChild(o); });
   if(val) sel.value=val;
+}
+
+function populateEquipmentSelect(siteId='', selectedId=''){
+  const sel=$('wo-equipment');
+  sel.innerHTML='<option value="">Not linked to equipment</option>';
+  const filtered = siteId
+    ? S.allEquipment.filter(e=>e.site_id==siteId)
+    : S.allEquipment;
+  // Group by site name if showing all sites
+  const bySite={};
+  filtered.forEach(e=>{ (bySite[e.site_name]||(bySite[e.site_name]=[])).push(e); });
+  Object.entries(bySite).forEach(([site,items])=>{
+    const grp=document.createElement('optgroup'); grp.label=site;
+    items.forEach(e=>{ const o=document.createElement('option'); o.value=e.id; o.textContent=e.name; grp.appendChild(o); });
+    sel.appendChild(grp);
+  });
+  if(selectedId) sel.value=selectedId;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -889,6 +1044,10 @@ function renderWOs(wos){
       <div class="wo-priority-bar priority-${wo.priority}"></div>
       <div class="wo-body">
         <div class="wo-title">${esc(wo.title)}</div>
+        ${wo.title_es?`<div style="font-size:12px;color:var(--success);font-style:italic;margin-top:2px">🇲🇽 ${esc(wo.title_es)}</div>`:''}
+        <div class="wo-meta">
+        ${wo.equipment_name?`<span style="font-size:12px;font-weight:600;color:var(--warning);display:inline-flex;align-items:center;gap:3px">⚙️ ${esc(wo.equipment_name)}</span>`:''}
+        </div>
         <div class="wo-meta">
           <span class="wo-site">${esc(wo.site_name)}</span>
           <span class="badge badge-${wo.category}">${catLabel(wo.category)}</span>
@@ -910,10 +1069,17 @@ async function openWOModal(id){
   $('wo-modal-title').textContent=id?'Edit Work Order':'New Work Order';
   $('wo-delete-btn').style.display=id?'inline-flex':'none';
   $('wo-id').value='';
-  $('wo-title').value=''; $('wo-description').value=''; $('wo-notes').value='';
+  $('wo-title').value=''; $('wo-title-es').value='';
+  $('wo-description').value=''; $('wo-description-es').value='';
+  $('wo-notes').value='';
   $('wo-priority').value='medium'; $('wo-status').value='open';
   $('wo-due-date').value=today(); $('wo-assignee').value='';
+  $('wo-title-es').dataset.manuallyEdited='false';
+  $('wo-description-es').dataset.manuallyEdited='false';
+  $('title-translate-hint').textContent='';
+  $('description-translate-hint').textContent='';
   populateSiteSelect('wo-site'); populateTeamSelect('wo-assignee');
+  populateEquipmentSelect();
   $('wo-photo-section').style.display='none';
   renderChecklist(); renderPhotos([]);
 
@@ -923,7 +1089,12 @@ async function openWOModal(id){
     if(wo){
       $('wo-id').value=wo.id;
       $('wo-title').value=wo.title;
+      $('wo-title-es').value=wo.title_es||'';
       $('wo-description').value=wo.description||'';
+      $('wo-description-es').value=wo.description_es||'';
+      $('wo-title-es').dataset.manuallyEdited = wo.title_es ? 'true' : 'false';
+      $('wo-description-es').dataset.manuallyEdited = wo.description_es ? 'true' : 'false';
+      populateEquipmentSelect(wo.site_id, wo.equipment_id||'');
       $('wo-notes').value=wo.notes||'';
       populateSiteSelect('wo-site',wo.site_id);
       $('wo-category').value=wo.category;
@@ -949,8 +1120,11 @@ async function saveWO(){
   const body={
     site_id:parseInt($('wo-site').value),
     title:$('wo-title').value.trim(),
+    title_es:$('wo-title-es').value.trim(),
     description:$('wo-description').value.trim(),
+    description_es:$('wo-description-es').value.trim(),
     checklist:JSON.stringify(S.checklist),
+    equipment_id:$('wo-equipment').value?parseInt($('wo-equipment').value):null,
     notes:$('wo-notes').value.trim(),
     category:$('wo-category').value,
     priority:$('wo-priority').value,
@@ -1104,7 +1278,9 @@ function renderEquipment(eqs){
       </div>
       ${isAlert?`<div class="eq-alert">⚠️ ${eq.alert_direction==='below'?'Level low':'Threshold reached'} — current: ${eq.current_value}${eq.meter_unit}, threshold: ${eq.alert_threshold}${eq.meter_unit}</div>`:''}
       <div class="eq-footer">
-        <span class="eq-last-reading">Updated ${timeAgo(eq.created_at)}</span>
+        <button class="btn btn-ghost btn-sm" onclick="openEquipmentLog(${eq.id})">
+          📋 Work Log
+        </button>
         <button class="btn btn-primary btn-sm" onclick="openReadingModal(${eq.id},'${esc(eq.name)}','${esc(eq.meter_unit)}',${eq.current_value})">Log Reading</button>
       </div>
     </div>`;
@@ -1151,6 +1327,7 @@ async function saveEquipment(){
   try{
     if(id) await put('/api/equipment/'+id,body);
     else   await post('/api/equipment',body);
+    S.allEquipment = await api('/api/equipment').catch(()=>S.allEquipment);
     closeModal('eq-modal-overlay'); toast(id?'Equipment updated':'Equipment added');
     loadEquipment(); loadDashboard();
   }catch(e){ toast('Error: '+e.message); }
@@ -1159,7 +1336,68 @@ async function saveEquipment(){
 async function deleteEquipment(){
   if(!confirm('Delete this equipment and all its readings?')) return;
   await del('/api/equipment/'+$('eq-id').value);
+  S.allEquipment = await api('/api/equipment').catch(()=>S.allEquipment);
   closeModal('eq-modal-overlay'); toast('Equipment deleted'); loadEquipment();
+}
+
+async function openEquipmentLog(eqId){
+  const eq = S.allEquipment.find(e=>e.id===eqId);
+  if(!eq) return;
+  S.currentLogEq = eq;
+  $('eq-log-modal-title').textContent = eq.name;
+
+  // Header info
+  const isPct = eq.meter_type==='percent';
+  const pct   = isPct ? Math.min(100,Math.max(0,eq.current_value)) : null;
+  const barClass = pct===null?'':pct>50?'high':pct>20?'medium':'low';
+  $('eq-log-header-info').innerHTML=`
+    <div class="eq-log-header">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div class="eq-log-meter">${eq.current_value}<span style="font-size:14px;font-weight:400;color:var(--text-muted)"> ${esc(eq.meter_unit)}</span></div>
+          <div class="eq-log-sub">${esc(eq.site_name)}${eq.description?' · '+esc(eq.description):''}</div>
+        </div>
+        <span class="badge badge-${eq.meter_type==='percent'?'landscape':'equipment'}">${esc(eq.meter_type)}</span>
+      </div>
+      ${isPct?`<div class="meter-bar-wrap" style="margin-top:10px"><div class="meter-bar ${barClass}" style="width:${pct}%"></div></div>`:''}
+    </div>`;
+
+  // Load work orders
+  const wos = await api('/api/equipment/'+eqId+'/work-orders').catch(()=>[]);
+  if(!wos.length){
+    $('eq-log-list').innerHTML='<div style="font-size:13px;color:var(--text-muted);text-align:center;padding:20px 0">No work orders linked to this equipment yet.<br>Use the button above to create one.</div>';
+  } else {
+    $('eq-log-list').innerHTML = wos.map(wo=>`
+      <div class="eq-wo-card" onclick="closeModal('eq-log-modal-overlay');setTimeout(()=>openWOModal(${wo.id}),200)">
+        <div class="eq-wo-bar priority-${wo.priority}" style="background:${wo.priority==='urgent'?'#dc2626':wo.priority==='high'?'#ea580c':wo.priority==='medium'?'#2563eb':'#94a3b8'}"></div>
+        <div class="eq-wo-body">
+          <div class="eq-wo-title">${esc(wo.title)}</div>
+          ${wo.title_es?`<div class="eq-wo-title-es">🇲🇽 ${esc(wo.title_es)}</div>`:''}
+          <div class="eq-wo-meta">
+            <span class="badge badge-${wo.status}">${fmtStatus(wo.status)}</span>
+            <span class="badge badge-${wo.priority}">${wo.priority}</span>
+            ${wo.due_date?`<span class="${isOverdue(wo.due_date)&&wo.status!=='complete'?'wo-due overdue':'wo-due'}">Due ${fmtDate(wo.due_date)}</span>`:''}
+            ${wo.assignee?`<span>${esc(wo.assignee)}</span>`:''}
+          </div>
+        </div>
+      </div>`).join('');
+  }
+  openModal('eq-log-modal-overlay');
+}
+
+function createWOFromEquipment(){
+  if(!S.currentLogEq) return;
+  closeModal('eq-log-modal-overlay');
+  // Small delay so the log modal closes first
+  setTimeout(()=>{
+    openWOModal(); // opens blank WO form
+    // Pre-fill site and equipment
+    setTimeout(()=>{
+      $('wo-site').value = S.currentLogEq.site_id;
+      $('wo-category').value = 'equipment';
+      populateEquipmentSelect(S.currentLogEq.site_id, S.currentLogEq.id);
+    }, 100);
+  }, 250);
 }
 
 async function openReadingModal(id,name,unit,current){
@@ -1309,9 +1547,10 @@ function populateDashAssigneeFilter(){
 // INIT
 // ═══════════════════════════════════════════════════════
 async function init(){
-  [S.sites, S.team] = await Promise.all([
+  [S.sites, S.team, S.allEquipment] = await Promise.all([
     api('/api/sites').catch(()=>[]),
     api('/api/team').catch(()=>[]),
+    api('/api/equipment').catch(()=>[]),
   ]);
 
   // Populate site filters

@@ -103,6 +103,9 @@ db.exec(`
 // Safe migrations for existing databases
 const safeAlter = sql => { try { db.exec(sql); } catch (_) {} };
 safeAlter("ALTER TABLE work_orders ADD COLUMN checklist TEXT DEFAULT '[]'");
+safeAlter("ALTER TABLE work_orders ADD COLUMN title_es TEXT DEFAULT ''");
+safeAlter("ALTER TABLE work_orders ADD COLUMN description_es TEXT DEFAULT ''");
+safeAlter("ALTER TABLE work_orders ADD COLUMN equipment_id INTEGER REFERENCES equipment(id)");
 safeAlter("CREATE TABLE IF NOT EXISTS work_order_photos (id INTEGER PRIMARY KEY AUTOINCREMENT, work_order_id INTEGER NOT NULL, filename TEXT NOT NULL, original_name TEXT NOT NULL, created_at TEXT DEFAULT (datetime('now')))");
 
 // Seed default sites
@@ -173,9 +176,11 @@ setInterval(generateRecurring, 60 * 60 * 1000);
 const WO_SELECT = `
   SELECT wo.*,
     s.name as site_name,
+    eq.name as equipment_name,
     (SELECT COUNT(*) FROM work_order_photos WHERE work_order_id=wo.id) as photo_count
   FROM work_orders wo
   JOIN sites s ON wo.site_id=s.id
+  LEFT JOIN equipment eq ON wo.equipment_id=eq.id
 `;
 const EQ_SELECT  = 'SELECT e.*, s.name as site_name FROM equipment e JOIN sites s ON e.site_id=s.id';
 const TMPL_SELECT= 'SELECT t.*, s.name as site_name FROM recurring_templates t JOIN sites s ON t.site_id=s.id';
@@ -262,33 +267,36 @@ app.get('/api/work-orders', (req, res) => {
 });
 
 app.post('/api/work-orders', (req, res) => {
-  const { site_id, title, description='', checklist='[]', category, priority='medium', assignee='', status='open', due_date, notes='' } = req.body;
+  const { site_id, title, title_es='', description='', description_es='', checklist='[]', category, priority='medium', assignee='', status='open', due_date, notes='', equipment_id } = req.body;
   if (!site_id || !title || !category) return res.status(400).json({ error: 'site_id, title, category required' });
   const r = db.prepare(`
-    INSERT INTO work_orders (site_id,title,description,checklist,category,priority,assignee,status,due_date,notes)
-    VALUES (?,?,?,?,?,?,?,?,?,?)
-  `).run(site_id, title, description, checklist, category, priority, assignee, status, due_date||null, notes);
+    INSERT INTO work_orders (site_id,title,title_es,description,description_es,checklist,category,priority,assignee,status,due_date,notes,equipment_id)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+  `).run(site_id, title, title_es, description, description_es, checklist, category, priority, assignee, status, due_date||null, notes, equipment_id||null);
   res.status(201).json(db.prepare(WO_SELECT+' WHERE wo.id=?').get(r.lastInsertRowid));
 });
 
 app.put('/api/work-orders/:id', (req, res) => {
-  const { site_id, title, description, checklist, category, priority, assignee, status, due_date, notes } = req.body;
+  const { site_id, title, title_es, description, description_es, checklist, category, priority, assignee, status, due_date, notes, equipment_id } = req.body;
   db.prepare(`
     UPDATE work_orders SET
-      site_id     = COALESCE(?,site_id),
-      title       = COALESCE(?,title),
-      description = COALESCE(?,description),
-      checklist   = COALESCE(?,checklist),
-      category    = COALESCE(?,category),
-      priority    = COALESCE(?,priority),
-      assignee    = COALESCE(?,assignee),
-      status      = COALESCE(?,status),
-      due_date    = ?,
-      notes       = COALESCE(?,notes),
-      completed_at= CASE WHEN COALESCE(?,status)='complete' AND completed_at IS NULL THEN datetime('now') ELSE completed_at END,
-      updated_at  = datetime('now')
+      site_id        = COALESCE(?,site_id),
+      title          = COALESCE(?,title),
+      title_es       = COALESCE(?,title_es),
+      description    = COALESCE(?,description),
+      description_es = COALESCE(?,description_es),
+      checklist      = COALESCE(?,checklist),
+      category       = COALESCE(?,category),
+      priority       = COALESCE(?,priority),
+      assignee       = COALESCE(?,assignee),
+      status         = COALESCE(?,status),
+      due_date       = ?,
+      notes          = COALESCE(?,notes),
+      equipment_id   = ?,
+      completed_at   = CASE WHEN COALESCE(?,status)='complete' AND completed_at IS NULL THEN datetime('now') ELSE completed_at END,
+      updated_at     = datetime('now')
     WHERE id=?
-  `).run(site_id,title,description,checklist,category,priority,assignee,status,due_date??undefined,notes,status,req.params.id);
+  `).run(site_id,title,title_es,description,description_es,checklist,category,priority,assignee,status,due_date??undefined,notes,equipment_id||null,status,req.params.id);
   res.json(db.prepare(WO_SELECT+' WHERE wo.id=?').get(req.params.id));
 });
 
@@ -359,6 +367,11 @@ app.delete('/api/equipment/:id', (req, res) => {
 app.get('/api/equipment/:id/readings', (req, res) => {
   res.json(db.prepare('SELECT * FROM meter_readings WHERE equipment_id=? ORDER BY created_at DESC LIMIT 50').all(req.params.id));
 });
+app.get('/api/equipment/:id/work-orders', (req, res) => {
+  const wos = db.prepare(WO_SELECT + ' WHERE wo.equipment_id=? ORDER BY wo.due_date DESC NULLS LAST, wo.created_at DESC').all(req.params.id);
+  res.json(wos);
+});
+
 app.post('/api/equipment/:id/readings', (req, res) => {
   const { value, notes='', recorded_by='' } = req.body;
   db.prepare('INSERT INTO meter_readings (equipment_id,value,notes,recorded_by) VALUES (?,?,?,?)').run(req.params.id,value,notes,recorded_by);
